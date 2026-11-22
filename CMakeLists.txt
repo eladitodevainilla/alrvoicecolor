@@ -9,9 +9,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(ALR_BUILD_PLUGIN "Build JUCE Audio Plugin targets (VST3 / AU / Standalone)" ON)
 option(ALR_BUILD_TESTS  "Build standalone C++20 DSP verification test suite" ON)
 
-# ----------------------------------------------------------------------------
-# Core DSP Static Library (Zero JUCE dependencies — fast, portable, testable)
-# ----------------------------------------------------------------------------
 add_library(ALRVoiceColorDSP STATIC
     Source/DSP/DSPCommon.h
     Source/DSP/VoiceProfile.h
@@ -39,28 +36,22 @@ target_include_directories(ALRVoiceColorDSP PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/S
 set_target_properties(ALRVoiceColorDSP PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(MSVC)
-    target_compile_options(ALRVoiceColorDSP PRIVATE /W4 /O2)
+    target_compile_options(ALRVoiceColorDSP PRIVATE /W3 /O2)
 else()
     target_compile_options(ALRVoiceColorDSP PRIVATE -Wall -Wextra -O2)
 endif()
 
-# ----------------------------------------------------------------------------
-# Standalone DSP Unit Test Suite (No JUCE required)
-# ----------------------------------------------------------------------------
 if(ALR_BUILD_TESTS)
     enable_testing()
     add_subdirectory(Tests)
 endif()
 
-# ----------------------------------------------------------------------------
-# JUCE 8 Plugin Targets (VST3, AU on macOS, Standalone)
-# ----------------------------------------------------------------------------
 if(ALR_BUILD_PLUGIN)
     include(FetchContent)
     FetchContent_Declare(
         JUCE
         GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG        8.0.4
+        GIT_TAG        master
         GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(JUCE)
@@ -115,7 +106,6 @@ if(ALR_BUILD_PLUGIN)
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
-        JUCE_DISPLAY_SPLASH_SCREEN=0
     )
 
     target_link_libraries(ALRVoiceColor PRIVATE
@@ -124,7 +114,5 @@ if(ALR_BUILD_PLUGIN)
         juce::juce_audio_processors
         juce::juce_gui_extra
         juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags
     )
 endif()
