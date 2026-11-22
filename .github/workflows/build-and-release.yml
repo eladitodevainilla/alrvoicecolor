@@ -4,8 +4,6 @@ on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 permissions:
@@ -19,8 +17,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure CMake (Visual Studio 2022 x64)
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: Configure CMake (Auto-detect Visual Studio x64)
+        run: cmake -S . -B build -A x64
 
       - name: Build VST3, Standalone & DSP Tests (Release)
         run: cmake --build build --config Release --parallel
@@ -49,7 +47,7 @@ jobs:
             "1. Copia la carpeta 'VST3\ALR VOICE COLOR.vst3' dentro de:"
             "   C:\Program Files\Common Files\VST3\"
             "2. Abre tu DAW (FL Studio, Ableton Live, Cubase, Reaper, Studio One)"
-            "   y ejecuta un escaneo de plugins (Manage Plugins -> Find installed plugins)."
+            "   y ejecuta un escaneo de plugins."
             "3. Para probar sin DAW, ejecuta 'Standalone\ALR VOICE COLOR.exe'."
           ) | Set-Content -Path "$pkg/INSTALAR_WINDOWS.txt" -Encoding UTF8
 
@@ -106,19 +104,6 @@ jobs:
             cp -R "$APP_PATH" dist/ALR-VOICE-COLOR-macOS-Universal/Standalone/
           fi
 
-          printf '%s\n' \
-            "ALR VOICE COLOR - Instalacion en macOS (Apple Silicon & Intel)" \
-            "==============================================================" \
-            "1. VST3: Copia 'VST3/ALR VOICE COLOR.vst3' a:" \
-            "   ~/Library/Audio/Plug-Ins/VST3/" \
-            "2. Audio Unit (Logic Pro / GarageBand): Copia 'AU/ALR VOICE COLOR.component' a:" \
-            "   ~/Library/Audio/Plug-Ins/Components/" \
-            "3. Si macOS muestra aviso de desarrollador no verificado, ejecuta en Terminal:" \
-            "   xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/\"ALR VOICE COLOR.vst3\"" \
-            "   xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/\"ALR VOICE COLOR.component\"" \
-            "4. Reescanea los plugins en tu DAW." \
-            > dist/ALR-VOICE-COLOR-macOS-Universal/INSTALAR_MACOS.txt
-
           (cd dist/ALR-VOICE-COLOR-macOS-Universal && zip -r ../ALR-VOICE-COLOR-macOS-Universal.zip .)
 
       - name: Upload macOS Artifact
@@ -143,6 +128,7 @@ jobs:
             libfreetype-dev \
             libfontconfig1-dev \
             libx11-dev \
+            libxext-dev \
             libxinerama-dev \
             libxrandr-dev \
             libxcursor-dev \
@@ -177,14 +163,6 @@ jobs:
             cp "$STANDALONE_BIN" dist/ALR-VOICE-COLOR-Linux-x64/Standalone/
           fi
 
-          printf '%s\n' \
-            "ALR VOICE COLOR - Instalacion en Linux x64 (VST3 + Standalone)" \
-            "==============================================================" \
-            "1. Copia 'VST3/ALR VOICE COLOR.vst3' dentro de:" \
-            "   ~/.vst3/" \
-            "2. Reescanea los plugins en Reaper, Bitwig, Ardour o tu DAW favorito." \
-            > dist/ALR-VOICE-COLOR-Linux-x64/INSTALAR_LINUX.txt
-
           (cd dist/ALR-VOICE-COLOR-Linux-x64 && zip -r ../ALR-VOICE-COLOR-Linux-x64.zip .)
 
       - name: Upload Linux Artifact
@@ -197,45 +175,19 @@ jobs:
   publish-release:
     name: Publish Downloadable GitHub Release
     needs: [ build-windows, build-macos, build-linux ]
-    if: github.event_name != 'pull_request'
+    if: always() && (needs.build-windows.result == 'success' || needs.build-macos.result == 'success' || needs.build-linux.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - name: Download All Built Platform Artifacts
+      - name: Download Built Platform Artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
           merge-multiple: true
 
-      - name: Determine Release Tag
-        id: rel
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "name=ALR VOICE COLOR ${TAG}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-            echo "name=ALR VOICE COLOR - Latest Build (VST3 / AU / Standalone)" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create or Update GitHub Release with Compiled Plugins
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.rel.outputs.tag }}
-          name: ${{ steps.rel.outputs.name }}
+          tag_name: latest
+          name: ALR VOICE COLOR - Latest Build (VST3 / AU / Standalone)
           make_latest: true
-          body: |
-            ## ALR VOICE COLOR — Plugins Compilados Listos para Usar
-
-            Descarga el archivo correspondiente a tu sistema operativo desde **Assets** abajo:
-
-            - **Windows (FL Studio, Ableton, Cubase, Reaper, Studio One):** `ALR-VOICE-COLOR-Windows-x64.zip` (`VST3` + `Standalone`)
-            - **macOS (Apple Silicon & Intel — Logic Pro, Ableton, FL Studio):** `ALR-VOICE-COLOR-macOS-Universal.zip` (`VST3` + `AU` + `Standalone`)
-            - **Linux x64:** `ALR-VOICE-COLOR-Linux-x64.zip` (`VST3` + `Standalone`)
-
-            Cada paquete incluye instrucciones rapidas de instalacion y paso las 20 pruebas automatizadas del motor DSP C++20.
-          files: |
-            release-assets/ALR-VOICE-COLOR-Windows-x64.zip
-            release-assets/ALR-VOICE-COLOR-macOS-Universal.zip
-            release-assets/ALR-VOICE-COLOR-Linux-x64.zip
+          files: release-assets/*.zip
