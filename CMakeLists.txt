@@ -36,6 +36,7 @@ add_library(ALRVoiceColorDSP STATIC
 )
 
 target_include_directories(ALRVoiceColorDSP PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+set_target_properties(ALRVoiceColorDSP PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(MSVC)
     target_compile_options(ALRVoiceColorDSP PRIVATE /W4 /O2)
