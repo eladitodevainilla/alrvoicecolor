@@ -1,0 +1,41 @@
+# Build directories
+build/
+Build/
+Builds/
+cmake-build-*/
+out/
+
+# Compiled binaries & plugin artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.vst3/
+*.component/
+*.app/
+*.pdb
+*.ilk
+
+# CMake / IDE files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+.vs/
+.vscode/
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+*.sln
+*.vcxproj*
+*.user
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

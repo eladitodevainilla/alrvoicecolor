@@ -1,0 +1,3 @@
+add_executable(ALRVoiceColorDSPTests TestMain.cpp)
+target_link_libraries(ALRVoiceColorDSPTests PRIVATE ALRVoiceColorDSP)
+add_test(NAME ALRVoiceColorDSPVerification COMMAND ALRVoiceColorDSPTests)

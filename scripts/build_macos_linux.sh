@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BUILD_DIR="$ROOT_DIR/build"
+
+cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$BUILD_DIR" --config Release --parallel
+ctest --test-dir "$BUILD_DIR" --output-on-failure
+
+echo ""
+echo "Build complete. Artifacts are located in: $BUILD_DIR/ALRVoiceColor_artefacts/Release/"
