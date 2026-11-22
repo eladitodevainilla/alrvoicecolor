@@ -1,7 +1,6 @@
 #include "ParameterManager.h"
 #include <cmath>
 #include <memory>
-#include <vector>
 
 namespace alr
 {
@@ -26,7 +25,7 @@ juce::StringArray ParameterManager::getPitchRangeChoices()
 
 juce::AudioProcessorValueTreeState::ParameterLayout ParameterManager::createParameterLayout()
 {
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> p;
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     auto pctFormat = [](float value, int) { return juce::String(static_cast<int>(std::round(value * 100.0f))) + "%"; };
     auto dbFormat  = [](float value, int) { return (value >= 0.0f ? "+" : "") + juce::String(value, 1) + " dB"; };
@@ -37,26 +36,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout ParameterManager::createPara
     };
 
     // Global & Output
-    p.push_back(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{ params::bypass, 1 }, "Bypass", false));
 
-    p.push_back(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{ params::autoGainComp, 1 }, "Auto Gain", true));
 
-    p.push_back(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{ params::outputGain, 1 }, "Output Gain",
         juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction(dbFormat)));
 
-    p.push_back(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{ params::globalMix, 1 }, "Global Mix",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction(pctFormat)));
 
-    // Voice Color Engine (Conservative musical studio defaults)
+    // Voice Color Engine
     auto addPctParam = [&](const char* id, const char* name, float defaultVal)
     {
-        p.push_back(std::make_unique<juce::AudioParameterFloat>(
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID{ id, 1 }, name,
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), defaultVal,
             juce::AudioParameterFloatAttributes().withStringFromValueFunction(pctFormat)));
@@ -72,31 +71,30 @@ juce::AudioProcessorValueTreeState::ParameterLayout ParameterManager::createPara
     addPctParam(params::color,    "Color",    0.75f);
 
     // ALR Pitch Engine
-    p.push_back(std::make_unique<juce::AudioParameterBool>(
+    layout.add(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{ params::pitchEnabled, 1 }, "ALR Pitch On", false));
 
-    p.push_back(std::make_unique<juce::AudioParameterChoice>(
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{ params::pitchRoot, 1 }, "Root Note", getRootNoteChoices(), 0));
 
-    p.push_back(std::make_unique<juce::AudioParameterChoice>(
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{ params::pitchScale, 1 }, "Scale", getScaleChoices(), 0));
 
-    // Logarithmic skew on Retune Speed so 0-30 ms modern tuning range has generous knob precision
     juce::NormalisableRange<float> retuneRange(0.5f, 200.0f, 0.5f);
     retuneRange.setSkewForCentre(30.0f);
-    p.push_back(std::make_unique<juce::AudioParameterFloat>(
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{ params::retuneSpeed, 1 }, "Retune Speed", retuneRange, 30.0f,
         juce::AudioParameterFloatAttributes().withStringFromValueFunction(msFormat)));
 
     addPctParam(params::humanize, "Humanize", 0.35f);
     addPctParam(params::flex,     "Flex",     0.30f);
 
-    p.push_back(std::make_unique<juce::AudioParameterChoice>(
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{ params::pitchRange, 1 }, "Pitch Range", getPitchRangeChoices(), 3));
 
     addPctParam(params::pitchMix, "Pitch Mix", 1.0f);
 
-    return { p.begin(), p.end() };
+    return layout;
 }
 
 dsp::ChainParameters ParameterManager::readChainParameters(const juce::AudioProcessorValueTreeState& apvts) noexcept
@@ -154,12 +152,12 @@ juce::ValueTree ParameterManager::serializeVoiceProfile(const dsp::VoiceProfile&
     tree.setProperty("avgRms", profile.averageVocalRmsDb, nullptr);
 
     for (int i = 0; i < dsp::VoiceProfile::kNumBands; ++i)
-        tree.setProperty("band_" + juce::String(i), profile.bandRelDb[static_cast<std::size_t>(i)], nullptr);
+        tree.setProperty(juce::Identifier("band_" + juce::String(i)), profile.bandRelDb[static_cast<std::size_t>(i)], nullptr);
 
     for (int i = 0; i < dsp::VoiceProfile::kMaxResonances; ++i)
     {
-        tree.setProperty("resFreq_" + juce::String(i), profile.resonanceFreqHz[static_cast<std::size_t>(i)], nullptr);
-        tree.setProperty("resSev_" + juce::String(i), profile.resonanceSeverityDb[static_cast<std::size_t>(i)], nullptr);
+        tree.setProperty(juce::Identifier("resFreq_" + juce::String(i)), profile.resonanceFreqHz[static_cast<std::size_t>(i)], nullptr);
+        tree.setProperty(juce::Identifier("resSev_" + juce::String(i)), profile.resonanceSeverityDb[static_cast<std::size_t>(i)], nullptr);
     }
 
     return tree;
@@ -187,12 +185,12 @@ dsp::VoiceProfile ParameterManager::deserializeVoiceProfile(const juce::ValueTre
     p.averageVocalRmsDb     = static_cast<float>(tree.getProperty("avgRms", -18.0f));
 
     for (int i = 0; i < dsp::VoiceProfile::kNumBands; ++i)
-        p.bandRelDb[static_cast<std::size_t>(i)] = static_cast<float>(tree.getProperty("band_" + juce::String(i), 0.0f));
+        p.bandRelDb[static_cast<std::size_t>(i)] = static_cast<float>(tree.getProperty(juce::Identifier("band_" + juce::String(i)), 0.0f));
 
     for (int i = 0; i < dsp::VoiceProfile::kMaxResonances; ++i)
     {
-        p.resonanceFreqHz[static_cast<std::size_t>(i)]     = static_cast<float>(tree.getProperty("resFreq_" + juce::String(i), 2600.0f));
-        p.resonanceSeverityDb[static_cast<std::size_t>(i)] = static_cast<float>(tree.getProperty("resSev_" + juce::String(i), 0.0f));
+        p.resonanceFreqHz[static_cast<std::size_t>(i)]     = static_cast<float>(tree.getProperty(juce::Identifier("resFreq_" + juce::String(i)), 2600.0f));
+        p.resonanceSeverityDb[static_cast<std::size_t>(i)] = static_cast<float>(tree.getProperty(juce::Identifier("resSev_" + juce::String(i)), 0.0f));
     }
 
     if (p.isValid)
